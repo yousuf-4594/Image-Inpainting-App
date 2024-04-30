@@ -12,15 +12,31 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   File? _image;
+  File? _maskImage;
   Image? _uploadedImage;
+  // Image? _uploadedMaskImage;
+  String _baseUrl = "";
+  String text = "";
 
   Future<void> _getImage() async {
     print("[INFO] Get Image button pressed");
     final imagePicker = ImagePicker();
     final pickedFile = await imagePicker.pickImage(source: ImageSource.gallery);
+
+
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _getMaskImage() async{
+    final maskImagePicker = ImagePicker();
+    final maskPickedFile = await maskImagePicker.pickImage(source: ImageSource.gallery);
+    if (maskPickedFile != null) {
+      setState(() {
+        _maskImage = File(maskPickedFile.path);
       });
     }
   }
@@ -30,10 +46,11 @@ class _MyAppState extends State<MyApp> {
       return;
     }
 
-    final apiUrl = 'https://wicked-walls-unite.loca.lt/api/inpaint/';
+    final apiUrl = '$_baseUrl/api/inpaint/';
     try {
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
-      request.fields['text'] = 'Your text data here'; // Add your text data here
+      request.headers["bypass-tunnel-reminder"] = "true";
+      request.fields['text'] = text; // Add your text data here
       request.files.add(
         http.MultipartFile(
           'image',
@@ -42,6 +59,15 @@ class _MyAppState extends State<MyApp> {
           filename: basename(_image!.path),
         ),
       );
+      request.files.add(
+        http.MultipartFile(
+          'mask',
+          File(_maskImage!.path).readAsBytes().asStream(),
+          File(_maskImage!.path).lengthSync(),
+          filename: basename(_maskImage!.path),
+        ),
+      );
+
 
       var response = await http.Response.fromStream(await request.send());
 
@@ -71,13 +97,54 @@ class _MyAppState extends State<MyApp> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.black,
+                  width: 1.0, // Adjust border width as needed
+                ),
+                borderRadius: BorderRadius.circular(5.0), // Adjust border radius as needed
+              ),
+              child: TextField(
+                onChanged: (value) {
+                  setState(() {
+                    _baseUrl = value;
+                  });
+
+                },
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.black,
+                  width: 1.0, // Adjust border width as needed
+                ),
+                borderRadius: BorderRadius.circular(5.0), // Adjust border radius as needed
+              ),
+              child: TextField(
+                onChanged: (value) {
+                  setState(() {
+                    text = value;
+                  });
+                },
+              ),
+            ),
             if (_image != null) ...[
-              Image.file(_image!),
+              Container(width:150, height: 150, child: Image.file(_image!)),
+              SizedBox(height: 20),
+            ],
+            if (_maskImage != null) ...[
+              Container(width:150, height: 150, child: Image.file(_maskImage!)),
               SizedBox(height: 20),
             ],
             ElevatedButton(
               onPressed: _getImage,
-              child: Text('Select Image'),
+              child: Text('Select Input Image'),
+            ),
+            ElevatedButton(
+              onPressed: _getMaskImage,
+              child: Text('Select Mask Image'),
             ),
             SizedBox(height: 20),
             ElevatedButton(
@@ -86,7 +153,8 @@ class _MyAppState extends State<MyApp> {
             ),
             if(_uploadedImage != null)...[
               SizedBox(height: 20,),
-              _uploadedImage!,
+              Container(width: 250, height: 250, child: _uploadedImage!),
+
             ]
           ],
         ),
