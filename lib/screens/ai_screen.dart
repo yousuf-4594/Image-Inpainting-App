@@ -5,7 +5,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'package:image_picker/image_picker.dart';
 
-class ai_screen extends StatefulWidget {
+
+// good source for draw on image : https://ptyagicodecamp.github.io/building-cross-platform-finger-painting-app-in-flutter.html
+
+
+
+
+class ai_screen extends StatefulWidget { 
   @override
   _ai_screenState createState() => _ai_screenState();
 }
@@ -13,8 +19,8 @@ class ai_screen extends StatefulWidget {
 class _ai_screenState extends State<ai_screen> {
   File? _pickedImage; // Variable to hold the picked image
 
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
+  List<Offset> _points = <Offset>[];
+  Color _drawColor = Colors.red.withOpacity(0.5); // Red color with 50% opacity
 
   @override
   void initState() {
@@ -35,15 +41,11 @@ class _ai_screenState extends State<ai_screen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(''),
-      ),
-      body: Column(
+    return SingleChildScrollView(
+      child: Column(
         children: [
           SizedBox(
-            height: MediaQuery.of(context).size.height *
-                0.7, // Use 70% of screen height
+            height: MediaQuery.of(context).size.height * 0.8,
             child: _pickedImage == null
                 ? Center(
                     child: GestureDetector(
@@ -61,21 +63,112 @@ class _ai_screenState extends State<ai_screen> {
           ),
           Divider(
             height: 1,
-            color: Colors.black,
+            color: Colors.black54,
           ),
           Container(
-            height: 100,
-            width: MediaQuery.of(context).size.width,
-            decoration: BoxDecoration(color: Colors.white),
-          ),
+              height: 100,
+              width: MediaQuery.of(context).size.width,
+              decoration: BoxDecoration(color: Colors.white),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: SizedBox(
+                          height: 50,
+                          width: MediaQuery.of(context).size.width * 0.8,
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: "Enter Prompt Here...",
+                              border: InputBorder.none,
+                            ),
+                            onChanged: (text) {},
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                          onTap: () {},
+                          child: Container(
+                            height: 50,
+                            width: MediaQuery.of(context).size.width * 0.15,
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                            ),
+                            child: Icon(
+                              Icons.check,
+                              color: Colors.white,
+                            ),
+                          ))
+                    ],
+                  ),
+                  Divider(
+                    height: 1,
+                    color: Colors.black54,
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.draw, color: Colors.black),
+                        onPressed: _undo,
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.undo, color: Colors.black),
+                        onPressed: _undo,
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.download_rounded, color: Colors.black),
+                        onPressed: () {},
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.collections, color: Colors.black),
+                        onPressed: _openImagePicker,
+                      ),
+                    ],
+                  ),
+                ],
+              )),
         ],
       ),
     );
   }
+
+  void _undo() {
+    setState(() {
+      if (_points.isNotEmpty) {
+        _points.removeLast();
+      }
+    });
+  }
 }
 
+class _DrawingPainter extends CustomPainter {
+  final List<Offset?> points;
+  final Color color;
 
+  _DrawingPainter({required this.points, required this.color});
 
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 5.0;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      if (points[i] != null && points[i + 1] != null) {
+        canvas.drawLine(points[i]!, points[i + 1]!, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
+  }
+}
 
 // File? _image;
 //   File? _maskImage;
