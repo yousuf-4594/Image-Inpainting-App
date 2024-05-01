@@ -1,9 +1,14 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart';
+import 'package:image_inpainting/screens/ai_screen.dart';
+import 'package:image_inpainting/screens/home_screen.dart';
+import 'package:image_inpainting/screens/settings_screen.dart';
+
+void main() {
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: MyApp(),
+  ));
+}
 
 class MyApp extends StatefulWidget {
   @override
@@ -11,92 +16,73 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  File? _image;
-  Image? _uploadedImage;
+  int _selectedIndex = 0;
+  late PageController _pageController;
 
-  Future<void> _getImage() async {
-    print("[INFO] Get Image button pressed");
-    final imagePicker = ImagePicker();
-    final pickedFile = await imagePicker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _selectedIndex);
   }
 
-  Future<void> _uploadImage() async {
-    if (_image == null) {
-      return;
-    }
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
-    final apiUrl = 'https://wicked-walls-unite.loca.lt/api/inpaint/';
-    try {
-      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
-      request.fields['text'] = 'Your text data here'; // Add your text data here
-      request.files.add(
-        http.MultipartFile(
-          'image',
-          File(_image!.path).readAsBytes().asStream(),
-          File(_image!.path).lengthSync(),
-          filename: basename(_image!.path),
-        ),
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _pageController.animateToPage(
+        index,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.ease,
       );
-
-      var response = await http.Response.fromStream(await request.send());
-
-      if (response.statusCode == 200) {
-        // Handle success
-        setState(() {
-          _uploadedImage = Image.memory(response.bodyBytes);
-        });
-        print('Image uploaded successfully');
-      } else {
-        // Handle error
-        print('Failed to upload image: ${response.statusCode}');
-      }
-    } catch (e) {
-      // Handle network errors or exceptions
-      print('Exception: $e');
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Image Upload'),
+    var scaffold = Scaffold(
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        children: [
+          home_screen(),
+          ai_screen(),
+          settings_screen(),
+        ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_image != null) ...[
-              Image.file(_image!),
-              SizedBox(height: 20),
-            ],
-            ElevatedButton(
-              onPressed: _getImage,
-              child: Text('Select Image'),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _uploadImage,
-              child: Text('Upload Image'),
-            ),
-            if(_uploadedImage != null)...[
-              SizedBox(height: 20,),
-              _uploadedImage!,
-            ]
-          ],
+      bottomNavigationBar: navbar_widget(),
+    );
+    return scaffold;
+  }
+
+  BottomNavigationBar navbar_widget() {
+    return BottomNavigationBar(
+      items: const <BottomNavigationBarItem>[
+        BottomNavigationBarItem(
+          icon: Icon(Icons.filter_b_and_w_rounded),
+          label: '',
         ),
-      ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.blur_on_rounded),
+          label: '',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.settings_sharp),
+          label: '',
+        ),
+      ],
+      currentIndex: _selectedIndex,
+      selectedItemColor: Colors.black,
+      unselectedItemColor: Colors.grey,
+      onTap: _onItemTapped,
     );
   }
-}
-
-void main() {
-  runApp(MaterialApp(
-    home: MyApp(),
-  ));
 }
