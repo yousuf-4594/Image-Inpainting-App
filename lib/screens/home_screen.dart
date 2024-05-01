@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shimmer/shimmer.dart';
+import 'dart:math';
 
 class home_screen extends StatefulWidget {
   @override
@@ -25,6 +26,7 @@ class _home_screenState extends State<home_screen> {
   }
 
   Future<void> fetchImages() async {
+    print("is loading2: ${isLoading}");
     final String apiKey = '9AcoA5hSWNzpZyfKXvVQsXuqjV1Pmk8q7_5vq7ZtUIE';
     final String query = 'house interior';
     final String apiUrl =
@@ -41,16 +43,29 @@ class _home_screenState extends State<home_screen> {
         isLoading = false;
       });
     } else {
+      print("error");
       throw Exception('Failed to load images');
     }
-    print("is loading: ${isLoading}");
+    print("is loading3: ${isLoading}");
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Home'),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Discover'),
+            Row(
+              children: [
+                Icon(Icons.search_rounded),
+                SizedBox(width: 20),
+                Icon(Icons.invert_colors_on_outlined),
+              ],
+            ),
+          ],
+        ),
       ),
       body: ListView(
         children: [
@@ -58,12 +73,13 @@ class _home_screenState extends State<home_screen> {
             shrinkWrap: true,
             physics: NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 2.0,
-              mainAxisSpacing: 2.0,
+              crossAxisCount: Random().nextBool() ? 2 : 3,
+              crossAxisSpacing: 1.0,
+              mainAxisSpacing: 1.0,
             ),
             itemCount: imageUrls.length,
             itemBuilder: (context, index) {
+              print("is loading: ${isLoading}");
               return isLoading
                   ? Shimmer.fromColors(
                       baseColor: Colors.grey[300]!,
