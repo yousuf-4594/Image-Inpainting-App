@@ -5,13 +5,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'package:image_picker/image_picker.dart';
 
-
 // good source for draw on image : https://ptyagicodecamp.github.io/building-cross-platform-finger-painting-app-in-flutter.html
+// Things that are left
+// painting on image
+// undo/save the image
+// connect to backend
 
-
-
-
-class ai_screen extends StatefulWidget { 
+class ai_screen extends StatefulWidget {
   @override
   _ai_screenState createState() => _ai_screenState();
 }
@@ -52,6 +52,7 @@ class _ai_screenState extends State<ai_screen> {
                       onTap: _openImagePicker,
                       child: Icon(
                         Icons.image_search_outlined,
+                        color: Colors.black54,
                         size: 50,
                       ),
                     ),
