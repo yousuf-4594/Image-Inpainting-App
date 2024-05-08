@@ -66,6 +66,7 @@ class _MyAppState extends State<MyApp> {
 
   BottomNavigationBar navbar_widget() {
     return BottomNavigationBar(
+      backgroundColor: Colors.white,
       items: const <BottomNavigationBarItem>[
         BottomNavigationBarItem(
           icon: Icon(Icons.filter_b_and_w_rounded),

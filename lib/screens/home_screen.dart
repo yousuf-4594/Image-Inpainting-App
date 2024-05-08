@@ -52,7 +52,9 @@ class _home_screenState extends State<home_screen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -73,7 +75,7 @@ class _home_screenState extends State<home_screen> {
             shrinkWrap: true,
             physics: NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: Random().nextBool() ? 2 : 3,
+              crossAxisCount: 2,
               crossAxisSpacing: 1.0,
               mainAxisSpacing: 1.0,
             ),

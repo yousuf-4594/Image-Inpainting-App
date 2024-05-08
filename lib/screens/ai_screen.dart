@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:io';
@@ -5,31 +9,32 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'package:image_picker/image_picker.dart';
 
-// good source for draw on image : https://ptyagicodecamp.github.io/building-cross-platform-finger-painting-app-in-flutter.html
-// Things that are left
-// painting on image
-// undo/save the image
-// connect to backend
-
 class ai_screen extends StatefulWidget {
   @override
   _ai_screenState createState() => _ai_screenState();
 }
 
 class _ai_screenState extends State<ai_screen> {
-  File? _pickedImage; // Variable to hold the picked image
-
+  File? _pickedImage;
   List<Offset> _points = <Offset>[];
-  Color _drawColor = Colors.red.withOpacity(0.5); // Red color with 50% opacity
+  Color _drawColor = Colors.red;
+
+  late GlobalKey _paintKey;
+  late GlobalKey _repaintBoundaryKey;
+  late int img_height;
+  late int img_width;
 
   @override
   void initState() {
     super.initState();
+    _paintKey = GlobalKey();
+    _repaintBoundaryKey = GlobalKey();
   }
 
   Future<void> _openImagePicker() async {
     final picker = ImagePicker();
     final pickedImage = await picker.pickImage(source: ImageSource.gallery);
+
     if (pickedImage != null) {
       setState(() {
         _pickedImage = File(pickedImage.path);
@@ -41,106 +46,214 @@ class _ai_screenState extends State<ai_screen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.8,
-            child: _pickedImage == null
-                ? Center(
-                    child: GestureDetector(
-                      onTap: _openImagePicker,
-                      child: Icon(
-                        Icons.image_search_outlined,
-                        color: Colors.black54,
-                        size: 50,
-                      ),
-                    ),
-                  )
-                : Image.file(
-                    _pickedImage!,
-                    fit: BoxFit.contain,
-                  ),
-          ),
-          Divider(
-            height: 1,
-            color: Colors.black54,
-          ),
-          Container(
-              height: 100,
-              width: MediaQuery.of(context).size.width,
-              decoration: BoxDecoration(color: Colors.white),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: SizedBox(
-                          height: 50,
-                          width: MediaQuery.of(context).size.width * 0.8,
-                          child: TextField(
-                            decoration: InputDecoration(
-                              hintText: "Enter Prompt Here...",
-                              border: InputBorder.none,
-                            ),
-                            onChanged: (text) {},
-                          ),
+    return Container(
+      color: Colors.white,
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.8,
+              child: _pickedImage == null
+                  ? Center(
+                      child: GestureDetector(
+                        onTap: _openImagePicker,
+                        child: Icon(
+                          Icons.image_search_outlined,
+                          color: Colors.black54,
+                          size: 50,
                         ),
                       ),
-                      GestureDetector(
-                          onTap: () {},
-                          child: Container(
+                    )
+                  : RepaintBoundary(
+                      key: _repaintBoundaryKey,
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: Container(
+                              child: Image.file(
+                                _pickedImage!,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onPanUpdate: (details) {
+                              setState(() {
+                                RenderBox renderBox =
+                                    context.findRenderObject() as RenderBox;
+                                Offset localPosition = renderBox
+                                    .globalToLocal(details.globalPosition);
+                                // print('${localPosition}');
+                                draw(localPosition);
+                              });
+                            },
+                          ),
+                          CustomPaint(
+                            key: _paintKey,
+                            isComplex: true,
+                            painter: _DrawingPainter(
+                              points: _points,
+                              color: _drawColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+            Divider(
+              height: 1,
+              color: Colors.black54,
+            ),
+            Container(
+                height: 100,
+                width: MediaQuery.of(context).size.width,
+                decoration: BoxDecoration(color: Colors.white),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: SizedBox(
                             height: 50,
-                            width: MediaQuery.of(context).size.width * 0.15,
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
+                            width: MediaQuery.of(context).size.width * 0.8,
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: "Enter Prompt Here...",
+                                border: InputBorder.none,
+                              ),
+                              onChanged: (text) {},
                             ),
-                            child: Icon(
-                              Icons.check,
-                              color: Colors.white,
-                            ),
-                          ))
-                    ],
-                  ),
-                  Divider(
-                    height: 1,
-                    color: Colors.black54,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.draw, color: Colors.black),
-                        onPressed: _undo,
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.undo, color: Colors.black),
-                        onPressed: _undo,
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.download_rounded, color: Colors.black),
-                        onPressed: () {},
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.collections, color: Colors.black),
-                        onPressed: _openImagePicker,
-                      ),
-                    ],
-                  ),
-                ],
-              )),
-        ],
+                          ),
+                        ),
+                        GestureDetector(
+                            onTap: () {
+                              _save(context);
+                            },
+                            child: Container(
+                              height: 50,
+                              width: MediaQuery.of(context).size.width * 0.15,
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                              ),
+                              child: Icon(
+                                Icons.check,
+                                color: Colors.white,
+                              ),
+                            ))
+                      ],
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Colors.black54,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.draw, color: Colors.black),
+                          onPressed: () {},
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.undo, color: Colors.black),
+                          onPressed: () {},
+                        ),
+                        IconButton(
+                          icon:
+                              Icon(Icons.download_rounded, color: Colors.black),
+                          onPressed: () {},
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.collections, color: Colors.black),
+                          onPressed: _openImagePicker,
+                        ),
+                      ],
+                    ),
+                  ],
+                )),
+          ],
+        ),
       ),
     );
   }
 
-  void _undo() {
-    setState(() {
-      if (_points.isNotEmpty) {
-        _points.removeLast();
+  void _save(BuildContext context) async {
+    // Check if there are any points to draw and if an image is loaded
+    if (_points.isNotEmpty && _pickedImage != null) {
+      // Get the size of the loaded image
+      final imageSize = await _getImageSize(_pickedImage!.path);
+      final imgWidth = imageSize.width;
+      final imgHeight = imageSize.height;
+
+      // Create a new image with the drawn points
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      final paint = Paint()
+        ..color = _drawColor
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 70.0;
+
+      for (int i = 0; i < _points.length - 1; i++) {
+        if (_points[i] != null && _points[i + 1] != null) {
+          // Check if the point is within the image bounds
+          if (_isPointWithinBounds(_points[i]!, imgWidth, imgHeight) &&
+              _isPointWithinBounds(_points[i + 1]!, imgWidth, imgHeight)) {
+            canvas.drawLine(_points[i]!, _points[i + 1]!, paint);
+          }
+        }
       }
+
+      // Convert the image to a PNG byte array
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(
+          MediaQuery.of(context).size.width.toInt(),
+          MediaQuery.of(context).size.height.toInt());
+      final pngBytes = await img.toByteData(format: ImageByteFormat.png);
+      final Uint8List pngList = pngBytes!.buffer.asUint8List();
+
+      // Save the image to the device's download directory
+      final String dir = (await getExternalStorageDirectory())!.path;
+      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final String filePath = '$dir/drawn_image_$timestamp.png';
+      File(filePath).writeAsBytesSync(pngList);
+
+      // Clear the drawn points
+      setState(() {
+        _points.clear();
+      });
+      print('Image saved to $dir/drawn_image_$timestamp.png');
+    }
+  }
+
+// Function to get the size of the loaded image
+  Future<Size> _getImageSize(String imagePath) async {
+    final completer = Completer<Size>();
+    final image = Image.file(File(imagePath));
+    image.image.resolve(ImageConfiguration()).addListener(
+      ImageStreamListener(
+        (info, _) {
+          final imageWidth = info.image.width.toDouble();
+          final imageHeight = info.image.height.toDouble();
+          completer.complete(Size(imageWidth, imageHeight));
+          print('$imageWidth $imageHeight');
+        },
+      ),
+    );
+    return completer.future;
+  }
+
+// Function to check if a point is within the image bounds
+  bool _isPointWithinBounds(Offset point, double imgWidth, double imgHeight) {
+    return point.dx >= 0 &&
+        point.dx <= imgWidth &&
+        point.dy >= 0 &&
+        point.dy <= imgHeight;
+  }
+
+  void draw(Offset point) {
+    setState(() {
+      _points = List.from(_points)..add(point);
     });
   }
 }
@@ -156,8 +269,7 @@ class _DrawingPainter extends CustomPainter {
     final Paint paint = Paint()
       ..color = color
       ..strokeCap = StrokeCap.round
-      ..strokeWidth = 5.0;
-
+      ..strokeWidth = 70.0;
     for (int i = 0; i < points.length - 1; i++) {
       if (points[i] != null && points[i + 1] != null) {
         canvas.drawLine(points[i]!, points[i + 1]!, paint);
