@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -21,6 +22,7 @@ class _ai_screenState extends State<ai_screen> {
 
   late GlobalKey _paintKey;
   late GlobalKey _repaintBoundaryKey;
+  late GlobalKey _imgkey;
   late int img_height;
   late int img_width;
 
@@ -29,6 +31,7 @@ class _ai_screenState extends State<ai_screen> {
     super.initState();
     _paintKey = GlobalKey();
     _repaintBoundaryKey = GlobalKey();
+    _imgkey = GlobalKey();
   }
 
   Future<void> _openImagePicker() async {
@@ -42,6 +45,27 @@ class _ai_screenState extends State<ai_screen> {
     } else {
       print('No image selected.');
     }
+  }
+
+  Map<String, Offset> getContainerCoordinates(GlobalKey key) {
+    final RenderBox renderBox =
+        key.currentContext!.findRenderObject() as RenderBox;
+    final topLeft = renderBox.localToGlobal(Offset.zero);
+    final bottomRight =
+        renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero));
+
+    final startingCoordinates = Offset(topLeft.dx, topLeft.dy);
+    final endingCoordinates = Offset(bottomRight.dx, bottomRight.dy);
+
+    print(
+        'Starting Coordinates: ${startingCoordinates.dx}, ${startingCoordinates.dy}');
+    print(
+        'Ending Coordinates: ${endingCoordinates.dx}, ${endingCoordinates.dy}');
+
+    return {
+      'startingCoordinates': startingCoordinates,
+      'endingCoordinates': endingCoordinates,
+    };
   }
 
   @override
@@ -70,6 +94,7 @@ class _ai_screenState extends State<ai_screen> {
                         children: [
                           Center(
                             child: Container(
+                              key: _imgkey,
                               child: Image.file(
                                 _pickedImage!,
                                 fit: BoxFit.contain,
@@ -83,7 +108,7 @@ class _ai_screenState extends State<ai_screen> {
                                     context.findRenderObject() as RenderBox;
                                 Offset localPosition = renderBox
                                     .globalToLocal(details.globalPosition);
-                                // print('${localPosition}');
+                                print('${localPosition}');
                                 draw(localPosition);
                               });
                             },
@@ -183,8 +208,28 @@ class _ai_screenState extends State<ai_screen> {
     if (_points.isNotEmpty && _pickedImage != null) {
       // Get the size of the loaded image
       final imageSize = await _getImageSize(_pickedImage!.path);
-      final imgWidth = imageSize.width;
-      final imgHeight = imageSize.height;
+      final orignalWidth = imageSize.width;
+      final orignalHeight = imageSize.height;
+
+      final maxWidth = MediaQuery.of(context).size.width;
+      final maxHeight = MediaQuery.of(context).size.height;
+
+      var x = min(orignalWidth / maxWidth, orignalHeight / maxHeight);
+      print('image has been scaled down by $x in this app due to boxfit');
+
+      // final imgWidth = orignalWidth / x;
+      // final imgHeight = orignalHeight / x;
+
+      final imgWidth = maxWidth;
+      final imgHeight = maxHeight;
+
+      Map<String, Offset> coordinates = getContainerCoordinates(_imgkey);
+      print('coordinates of image container starting, ending x and y');
+      print(coordinates);
+      double containerTopLeftX = coordinates['startingCoordinates']!.dx;
+      double containerTopLeftY = coordinates['startingCoordinates']!.dy;
+      double containerBottomRightX = coordinates['endingCoordinates']!.dx;
+      double containerBottomRightY = coordinates['endingCoordinates']!.dy;
 
       // Create a new image with the drawn points
       final recorder = PictureRecorder();
@@ -206,9 +251,9 @@ class _ai_screenState extends State<ai_screen> {
 
       // Convert the image to a PNG byte array
       final picture = recorder.endRecording();
-      final img = await picture.toImage(
-          MediaQuery.of(context).size.width.toInt(),
-          MediaQuery.of(context).size.height.toInt());
+
+      final img = await picture.toImage(imgWidth.toInt(), imgHeight.toInt());
+
       final pngBytes = await img.toByteData(format: ImageByteFormat.png);
       final Uint8List pngList = pngBytes!.buffer.asUint8List();
 
@@ -236,14 +281,13 @@ class _ai_screenState extends State<ai_screen> {
           final imageWidth = info.image.width.toDouble();
           final imageHeight = info.image.height.toDouble();
           completer.complete(Size(imageWidth, imageHeight));
-          print('$imageWidth $imageHeight');
+          print('image Original dimensions: $imageWidth $imageHeight');
         },
       ),
     );
     return completer.future;
   }
 
-// Function to check if a point is within the image bounds
   bool _isPointWithinBounds(Offset point, double imgWidth, double imgHeight) {
     return point.dx >= 0 &&
         point.dx <= imgWidth &&
