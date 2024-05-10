@@ -63,7 +63,7 @@ class _ai_screenState extends State<ai_screen> {
     }
   }
 
-  Future<void> printImageDimensions(String imagePath) async {
+  Future<Map<String, String>> getImageDimensions(String imagePath) async {
     // Read the image file
     File imageFile = File(imagePath);
     Uint8List bytes = await imageFile.readAsBytes();
@@ -72,7 +72,10 @@ class _ai_screenState extends State<ai_screen> {
     ui.Image image = await decodeImageFromList(bytes);
 
     // Print the dimensions
-    print('Image dimensions: ${image.width} x ${image.height}');
+    return {
+      "width": "${image.width}",
+      "height": "${image.height}"
+    };
   }
 
   Future<void> _openImagePicker() async {
@@ -127,7 +130,7 @@ class _ai_screenState extends State<ai_screen> {
       return;
     }
 
-    await printImageDimensions(_maskImagePath);
+    Map<String, String> dimensions = await getImageDimensions(_pickedImage!.path);
 
     String _baseUrl = SharedVariables.getURL();
 
@@ -137,6 +140,9 @@ class _ai_screenState extends State<ai_screen> {
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
       request.headers["bypass-tunnel-reminder"] = "true";
       request.fields['text'] = _text; // Add your text data here
+      request.fields["width"] = dimensions["width"]!;
+      request.fields["height"] = dimensions["height"]!;
+
       request.files.add(
         http.MultipartFile(
           'image',
