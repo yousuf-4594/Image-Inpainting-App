@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
-import 'dart:ui';
-
+import 'dart:ui' as ui;
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'dart:io';
+import 'package:image_inpainting/utils/shared_variables.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import "package:http/http.dart" as http;
 
 class ai_screen extends StatefulWidget {
   @override
@@ -17,21 +20,59 @@ class ai_screen extends StatefulWidget {
 
 class _ai_screenState extends State<ai_screen> {
   File? _pickedImage;
+  File? _maskImage;
+  Image? _uploadedImage;
+  late String _text;
   List<Offset> _points = <Offset>[];
-  Color _drawColor = Colors.red;
+  Color _drawColor = Colors.white;
+  late String dir;
 
   late GlobalKey _paintKey;
   late GlobalKey _repaintBoundaryKey;
   late GlobalKey _imgkey;
   late int img_height;
   late int img_width;
+  late String _maskImagePath;
+
+  void loadDir() async{
+    String path = (await getExternalStorageDirectory())!.path;
+    setState(() {
+      dir = path;
+      _maskImagePath = '$path/mask.png';
+    });
+    print("Directory Loaded: $dir");
+    print("Mask Image Directory Loaded: $_maskImagePath");
+  }
 
   @override
   void initState() {
+    loadDir();
     super.initState();
     _paintKey = GlobalKey();
     _repaintBoundaryKey = GlobalKey();
     _imgkey = GlobalKey();
+
+  }
+
+  Future<File> loadImageFromFile(String imagePath) async {
+    File imageFile = File(imagePath);
+    if (await imageFile.exists()) {
+      return imageFile;
+    } else {
+      throw Exception('Image file does not exist');
+    }
+  }
+
+  Future<void> printImageDimensions(String imagePath) async {
+    // Read the image file
+    File imageFile = File(imagePath);
+    Uint8List bytes = await imageFile.readAsBytes();
+
+    // Decode the image
+    ui.Image image = await decodeImageFromList(bytes);
+
+    // Print the dimensions
+    print('Image dimensions: ${image.width} x ${image.height}');
   }
 
   Future<void> _openImagePicker() async {
@@ -43,7 +84,9 @@ class _ai_screenState extends State<ai_screen> {
         _pickedImage = File(pickedImage.path);
       });
     } else {
-      print('No image selected.');
+      if (kDebugMode) {
+        print('No image selected.');
+      }
     }
   }
 
@@ -57,15 +100,77 @@ class _ai_screenState extends State<ai_screen> {
     final startingCoordinates = Offset(topLeft.dx, topLeft.dy);
     final endingCoordinates = Offset(bottomRight.dx, bottomRight.dy);
 
-    print(
-        'Starting Coordinates: ${startingCoordinates.dx}, ${startingCoordinates.dy}');
-    print(
-        'Ending Coordinates: ${endingCoordinates.dx}, ${endingCoordinates.dy}');
 
     return {
       'startingCoordinates': startingCoordinates,
       'endingCoordinates': endingCoordinates,
     };
+  }
+
+  Future<void> _getMaskImage() async{
+    try{
+      File imageFile = await loadImageFromFile(_maskImagePath);
+      setState(() {
+        _maskImage = null;
+        _maskImage = imageFile;
+      });
+      print("Mask Image loaded: $_maskImagePath");
+    }catch(e){
+      print("Error loading image: $e");
+    }
+  }
+
+  Future<void> _uploadImage(context) async {
+    await _getMaskImage();
+    print("Mask Image Path: $_maskImage, File Path: $_pickedImage");
+    if (_pickedImage == null || _maskImage == null) {
+      return;
+    }
+
+    await printImageDimensions(_maskImagePath);
+
+    String _baseUrl = SharedVariables.getURL();
+
+    final apiUrl = '$_baseUrl/api/inpaint/';
+    print(apiUrl);
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      request.headers["bypass-tunnel-reminder"] = "true";
+      request.fields['text'] = _text; // Add your text data here
+      request.files.add(
+        http.MultipartFile(
+          'image',
+          File(_pickedImage!.path).readAsBytes().asStream(),
+          File(_pickedImage!.path).lengthSync(),
+          filename: basename(_pickedImage!.path),
+        ),
+      );
+      request.files.add(
+        http.MultipartFile(
+          'mask',
+          File(_maskImage!.path).readAsBytes().asStream(),
+          File(_maskImage!.path).lengthSync(),
+          filename: basename(_maskImage!.path),
+        ),
+      );
+
+
+      var response = await http.Response.fromStream(await request.send());
+
+      if (response.statusCode == 200) {
+        // Handle success
+        setState(() {
+          _uploadedImage = Image.memory(response.bodyBytes);
+        });
+        print('Image uploaded successfully');
+      } else {
+        // Handle error
+        print('Failed to upload image: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Handle network errors or exceptions
+      print('Exception: $e');
+    }
   }
 
   @override
@@ -148,13 +253,19 @@ class _ai_screenState extends State<ai_screen> {
                                 hintText: "Enter Prompt Here...",
                                 border: InputBorder.none,
                               ),
-                              onChanged: (text) {},
+                              onChanged: (text) {
+                                _text = text;
+                              },
                             ),
                           ),
                         ),
                         GestureDetector(
                             onTap: () {
                               _save(context);
+                              Future.delayed(Duration(seconds: 3), (){
+                                _uploadImage(context);
+                              });
+
                             },
                             child: Container(
                               height: 50,
@@ -224,15 +335,13 @@ class _ai_screenState extends State<ai_screen> {
       final imgHeight = maxHeight;
 
       Map<String, Offset> coordinates = getContainerCoordinates(_imgkey);
-      print('coordinates of image container starting, ending x and y');
-      print(coordinates);
       double containerTopLeftX = coordinates['startingCoordinates']!.dx;
       double containerTopLeftY = coordinates['startingCoordinates']!.dy;
       double containerBottomRightX = coordinates['endingCoordinates']!.dx;
       double containerBottomRightY = coordinates['endingCoordinates']!.dy;
 
       // Create a new image with the drawn points
-      final recorder = PictureRecorder();
+      final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
       final paint = Paint()
         ..color = _drawColor
@@ -254,20 +363,17 @@ class _ai_screenState extends State<ai_screen> {
 
       final img = await picture.toImage(imgWidth.toInt(), imgHeight.toInt());
 
-      final pngBytes = await img.toByteData(format: ImageByteFormat.png);
+      final pngBytes = await img.toByteData(format: ui.ImageByteFormat.png);
       final Uint8List pngList = pngBytes!.buffer.asUint8List();
 
-      // Save the image to the device's download directory
-      final String dir = (await getExternalStorageDirectory())!.path;
-      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String filePath = '$dir/drawn_image_$timestamp.png';
+      final String filePath = _maskImagePath;
+
       File(filePath).writeAsBytesSync(pngList);
 
       // Clear the drawn points
       setState(() {
         _points.clear();
       });
-      print('Image saved to $dir/drawn_image_$timestamp.png');
     }
   }
 
@@ -281,7 +387,6 @@ class _ai_screenState extends State<ai_screen> {
           final imageWidth = info.image.width.toDouble();
           final imageHeight = info.image.height.toDouble();
           completer.complete(Size(imageWidth, imageHeight));
-          print('image Original dimensions: $imageWidth $imageHeight');
         },
       ),
     );

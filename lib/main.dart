@@ -60,7 +60,7 @@ class _MyAppState extends State<MyApp> {
       ),
       bottomNavigationBar: navbar_widget(),
     );
-    return ChangeNotifierProvider(create: (context) => SharedVariables(), child: MaterialApp(home: scaffold),);
+    return MaterialApp(home: scaffold);
   }
 
   BottomNavigationBar navbar_widget() {

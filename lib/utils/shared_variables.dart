@@ -1,14 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+class SharedVariables{
+  static String _url = "";
 
-class SharedVariables extends ChangeNotifier {
-  String _url = ""; // Default locale
+  static void setURL(String url){
+    _url = url;
+  }
 
-  String get url => _url;
-
-  void setURL(String value) {
-    _url = value;
-    print("Value set $value");
-    notifyListeners();
+  static String getURL(){
+    return _url;
   }
 }

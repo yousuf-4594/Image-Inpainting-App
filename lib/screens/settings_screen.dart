@@ -8,8 +8,23 @@ class settings_screen extends StatefulWidget {
 }
 
 class _settings_screen extends State<settings_screen> {
+  late TextEditingController _textEditingController;
+  late String _url = "";
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _textEditingController = TextEditingController(text: _url);
+  }
+
   @override
   Widget build(BuildContext context) {
+    String url = SharedVariables.getURL();
+    setState(() {
+      _url = url;
+      _textEditingController.text = _url;
+    });
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -85,13 +100,14 @@ class _settings_screen extends State<settings_screen> {
                 child: SizedBox(
                   height: 50,
                   width: MediaQuery.of(context).size.width,
-                  child: TextField(
+                  child: TextField(controller: _textEditingController,
                     decoration: InputDecoration(
-                      hintText: "IP address 1...",
+                      // hintText: "IP address 1...",
                       border: InputBorder.none,
+
                     ),
                     onChanged: (text) {
-                      Provider.of<SharedVariables>(context, listen: false).setURL(text);
+                      SharedVariables.setURL(text);
                     },
                   ),
                 ),
