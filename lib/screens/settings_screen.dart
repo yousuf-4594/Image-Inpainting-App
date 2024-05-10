@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:image_inpainting/utils/shared_variables.dart';
+import 'package:provider/provider.dart';
 
 class settings_screen extends StatefulWidget {
   @override
@@ -88,7 +90,9 @@ class _settings_screen extends State<settings_screen> {
                       hintText: "IP address 1...",
                       border: InputBorder.none,
                     ),
-                    onChanged: (text) {},
+                    onChanged: (text) {
+                      Provider.of<SharedVariables>(context, listen: false).setURL(text);
+                    },
                   ),
                 ),
               ),

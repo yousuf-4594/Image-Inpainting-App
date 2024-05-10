@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:image_inpainting/screens/ai_screen.dart';
 import 'package:image_inpainting/screens/home_screen.dart';
 import 'package:image_inpainting/screens/settings_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:image_inpainting/utils/shared_variables.dart';
 
 void main() {
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: MyApp(),
-  ));
+  runApp(MyApp());
 }
 
 class MyApp extends StatefulWidget {
@@ -61,7 +60,7 @@ class _MyAppState extends State<MyApp> {
       ),
       bottomNavigationBar: navbar_widget(),
     );
-    return scaffold;
+    return ChangeNotifierProvider(create: (context) => SharedVariables(), child: MaterialApp(home: scaffold),);
   }
 
   BottomNavigationBar navbar_widget() {
