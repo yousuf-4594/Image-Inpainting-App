@@ -93,34 +93,20 @@ class _settings_screen extends State<settings_screen> {
                 ),
               ),
               Divider(color: Colors.black12, height: 1),
-              Padding(
-                padding: const EdgeInsets.only(left: 10, right: 10),
-                child: SizedBox(
-                  height: 50,
-                  width: MediaQuery.of(context).size.width,
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: "IP address 2...",
-                      border: InputBorder.none,
-                    ),
-                    onChanged: (text) {},
-                  ),
-                ),
-              ),
               Divider(color: Colors.black12, height: 1),
-              GestureDetector(
-                onTap: () {
-                  print("save information");
-                },
-                child: Container(
-                  height: 50,
-                  child: Center(
-                      child: Text(
-                    "Save information",
-                  )),
-                  decoration: BoxDecoration(color: Colors.black12),
-                ),
-              ),
+              // GestureDetector(
+              //   onTap: () {
+              //     print("save information");
+              //   },
+              //   child: Container(
+              //     height: 50,
+              //     child: Center(
+              //         child: Text(
+              //       "Save information",
+              //     )),
+              //     decoration: BoxDecoration(color: Colors.black12),
+              //   ),
+              // ),
               Divider(color: Colors.black12, height: 1),
             ],
           ),
