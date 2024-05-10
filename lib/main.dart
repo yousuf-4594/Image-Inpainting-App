@@ -1,9 +1,14 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart';
+import 'package:image_inpainting/screens/ai_screen.dart';
+import 'package:image_inpainting/screens/home_screen.dart';
+import 'package:image_inpainting/screens/settings_screen.dart';
+
+void main() {
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: MyApp(),
+  ));
+}
 
 class MyApp extends StatefulWidget {
   @override
@@ -11,6 +16,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+<<<<<<< HEAD
   File? _image;
   File? _maskImage;
   Image? _uploadedImage;
@@ -85,14 +91,52 @@ class _MyAppState extends State<MyApp> {
       // Handle network errors or exceptions
       print('Exception: $e');
     }
+=======
+  int _selectedIndex = 0;
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _selectedIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _pageController.animateToPage(
+        index,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.ease,
+      );
+    });
+>>>>>>> 2f657d91706ca3b16d829334256a0c783078d4de
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Image Upload'),
+    var scaffold = Scaffold(
+      body: PageView(
+        physics: NeverScrollableScrollPhysics(),
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        children: [
+          home_screen(),
+          ai_screen(),
+          settings_screen(),
+        ],
       ),
+<<<<<<< HEAD
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -157,14 +201,34 @@ class _MyAppState extends State<MyApp> {
 
             ]
           ],
+=======
+      bottomNavigationBar: navbar_widget(),
+    );
+    return scaffold;
+  }
+
+  BottomNavigationBar navbar_widget() {
+    return BottomNavigationBar(
+      backgroundColor: Colors.white,
+      items: const <BottomNavigationBarItem>[
+        BottomNavigationBarItem(
+          icon: Icon(Icons.filter_b_and_w_rounded),
+          label: '',
+>>>>>>> 2f657d91706ca3b16d829334256a0c783078d4de
         ),
-      ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.blur_on_rounded),
+          label: '',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.settings_sharp),
+          label: '',
+        ),
+      ],
+      currentIndex: _selectedIndex,
+      selectedItemColor: Colors.black,
+      unselectedItemColor: Colors.grey,
+      onTap: _onItemTapped,
     );
   }
-}
-
-void main() {
-  runApp(MaterialApp(
-    home: MyApp(),
-  ));
 }
