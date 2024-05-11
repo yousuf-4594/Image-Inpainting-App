@@ -11,42 +11,81 @@ class home_screen extends StatefulWidget {
 
 class _home_screenState extends State<home_screen> {
   List<String> imageUrls = [];
-  bool isLoading = true;
+  bool isLoading = false;
+  int page = 1;
+  ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    isLoading = true;
     fetchImages();
+    _scrollController.addListener(_scrollListener);
   }
 
   @override
   void dispose() {
     super.dispose();
+    _scrollController.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      print(
+          'req more images');
+    }
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
+      fetchImages();
+    }
+  }
+
+  String getRandomPrompt() {
+    List<String> prompts = [
+      "Living room design",
+      "Room design trends",
+      "Room paint design",
+      "Interior room design",
+      "Door design",
+      "Kitchen design",
+      "Room wall design",
+      "Chair design",
+      "Furniture design",
+      "Room bookshelf design",
+      "Bedroom design"
+    ];
+
+    int randomIndex = Random().nextInt(prompts.length);
+
+    return prompts[randomIndex];
   }
 
   Future<void> fetchImages() async {
-    print("is loading2: ${isLoading}");
-    final String apiKey = '9AcoA5hSWNzpZyfKXvVQsXuqjV1Pmk8q7_5vq7ZtUIE';
-    final String query = 'house interior';
-    final String apiUrl =
-        'https://api.unsplash.com/photos/random?count=15&query=$query&client_id=$apiKey';
-
-    final response = await http.get(Uri.parse(apiUrl));
-
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonResponse = json.decode(response.body);
+    if (!isLoading) {
       setState(() {
-        imageUrls = jsonResponse
-            .map((photo) => photo['urls']['regular'] as String)
-            .toList();
-        isLoading = false;
+        isLoading = true;
       });
-    } else {
-      print("error");
-      throw Exception('Failed to load images');
+
+      final String apiKey = '9AcoA5hSWNzpZyfKXvVQsXuqjV1Pmk8q7_5vq7ZtUIE';
+      final String query = getRandomPrompt();
+      final String apiUrl =
+          'https://api.unsplash.com/photos/random?count=15&page=$page&query=$query&client_id=$apiKey';
+
+      final response = await http.get(Uri.parse(apiUrl));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonResponse = json.decode(response.body);
+        setState(() {
+          imageUrls.addAll(jsonResponse
+              .map((photo) => photo['urls']['regular'] as String)
+              .toList());
+          isLoading = false;
+          page++;
+        });
+      } else {
+        throw Exception('Failed to load images');
+      }
     }
-    print("is loading3: ${isLoading}");
   }
 
   @override
@@ -70,6 +109,7 @@ class _home_screenState extends State<home_screen> {
         ),
       ),
       body: ListView(
+        controller: _scrollController,
         children: [
           GridView.builder(
             shrinkWrap: true,
@@ -79,21 +119,23 @@ class _home_screenState extends State<home_screen> {
               crossAxisSpacing: 1.0,
               mainAxisSpacing: 1.0,
             ),
-            itemCount: imageUrls.length,
+            itemCount: imageUrls.length + 1,
             itemBuilder: (context, index) {
-              print("is loading: ${isLoading}");
-              return isLoading
-                  ? Shimmer.fromColors(
-                      baseColor: Colors.grey[300]!,
-                      highlightColor: Colors.grey[100]!,
-                      child: Container(
-                        color: Colors.white,
-                      ),
-                    )
-                  : Image.network(
-                      imageUrls[index],
-                      fit: BoxFit.cover,
-                    );
+              if (index == imageUrls.length) {
+                return Center(
+                    child: Container(
+                        height: 15,
+                        width: 15,
+                        child: CircularProgressIndicator(
+                          color: Colors.black,
+                          strokeWidth: 1,
+                        )));
+              } else {
+                return Image.network(
+                  imageUrls[index],
+                  fit: BoxFit.cover,
+                );
+              }
             },
           ),
         ],
