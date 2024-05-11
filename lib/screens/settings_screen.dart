@@ -13,7 +13,6 @@ class _settings_screen extends State<settings_screen> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     _textEditingController = TextEditingController(text: _url);
   }

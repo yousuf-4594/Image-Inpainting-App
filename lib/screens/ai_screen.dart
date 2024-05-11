@@ -12,6 +12,7 @@ import 'package:path/path.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import "package:http/http.dart" as http;
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 
 class ai_screen extends StatefulWidget {
   @override
@@ -24,7 +25,7 @@ class _ai_screenState extends State<ai_screen> {
   Image? _uploadedImage;
   late String _text;
   List<Offset> _points = <Offset>[];
-  Color _drawColor = Colors.white;
+  Color _drawColor = Colors.blueAccent;
   late String dir;
 
   late GlobalKey _paintKey;
@@ -33,8 +34,13 @@ class _ai_screenState extends State<ai_screen> {
   late int img_height;
   late int img_width;
   late String _maskImagePath;
+  TextEditingController _controller = TextEditingController();
+  bool _loadingInput = false;
 
-  void loadDir() async{
+  double _sliderValue = 0.0;
+  bool _sliderVisible = false;
+
+  void loadDir() async {
     String path = (await getExternalStorageDirectory())!.path;
     setState(() {
       dir = path;
@@ -51,7 +57,6 @@ class _ai_screenState extends State<ai_screen> {
     _paintKey = GlobalKey();
     _repaintBoundaryKey = GlobalKey();
     _imgkey = GlobalKey();
-
   }
 
   Future<File> loadImageFromFile(String imagePath) async {
@@ -72,10 +77,7 @@ class _ai_screenState extends State<ai_screen> {
     ui.Image image = await decodeImageFromList(bytes);
 
     // Print the dimensions
-    return {
-      "width": "${image.width}",
-      "height": "${image.height}"
-    };
+    return {"width": "${image.width}", "height": "${image.height}"};
   }
 
   Future<void> _openImagePicker() async {
@@ -103,22 +105,21 @@ class _ai_screenState extends State<ai_screen> {
     final startingCoordinates = Offset(topLeft.dx, topLeft.dy);
     final endingCoordinates = Offset(bottomRight.dx, bottomRight.dy);
 
-
     return {
       'startingCoordinates': startingCoordinates,
       'endingCoordinates': endingCoordinates,
     };
   }
 
-  Future<void> _getMaskImage() async{
-    try{
+  Future<void> _getMaskImage() async {
+    try {
       File imageFile = await loadImageFromFile(_maskImagePath);
       setState(() {
         _maskImage = null;
         _maskImage = imageFile;
       });
       print("Mask Image loaded: $_maskImagePath");
-    }catch(e){
+    } catch (e) {
       print("Error loading image: $e");
     }
   }
@@ -130,7 +131,8 @@ class _ai_screenState extends State<ai_screen> {
       return;
     }
 
-    Map<String, String> dimensions = await getImageDimensions(_pickedImage!.path);
+    Map<String, String> dimensions =
+        await getImageDimensions(_pickedImage!.path);
 
     String _baseUrl = SharedVariables.getURL();
 
@@ -159,22 +161,37 @@ class _ai_screenState extends State<ai_screen> {
           filename: basename(_maskImage!.path),
         ),
       );
-
-
+      showSnackbar(context, 'Image uploaded to server', 1);
       var response = await http.Response.fromStream(await request.send());
 
       if (response.statusCode == 200) {
         // Handle success
+        // setState(() {
+        //   _uploadedImage = Image.memory(response.bodyBytes);
+        // });
+
+        // Convert the received image bytes to a File object and assign it to _pickedImage
+        final String dir = (await getExternalStorageDirectory())!.path;
+        final String timestamp =
+            DateTime.now().millisecondsSinceEpoch.toString();
+        final String filePath = '$dir/uploaded_image_$timestamp.png';
+        await File(filePath).writeAsBytes(response.bodyBytes);
+        print(filePath);
+
         setState(() {
-          _uploadedImage = Image.memory(response.bodyBytes);
+          _pickedImage = File(filePath);
+          _loadingInput = false;
         });
+
         print('Image uploaded successfully');
       } else {
         // Handle error
         print('Failed to upload image: ${response.statusCode}');
       }
     } catch (e) {
+      _loadingInput = false;
       // Handle network errors or exceptions
+      showSnackbar(context, 'Exception $e', 1);
       print('Exception: $e');
     }
   }
@@ -215,13 +232,37 @@ class _ai_screenState extends State<ai_screen> {
                           GestureDetector(
                             onPanUpdate: (details) {
                               setState(() {
-                                RenderBox renderBox =
-                                    context.findRenderObject() as RenderBox;
-                                Offset localPosition = renderBox
-                                    .globalToLocal(details.globalPosition);
-                                print('${localPosition}');
-                                draw(localPosition);
+                                _sliderVisible = false;
                               });
+                              Map<String, Offset> coordinates =
+                                  getContainerCoordinates(_imgkey);
+                              double containerTopLeftX =
+                                  coordinates['startingCoordinates']!.dx;
+                              double containerTopLeftY =
+                                  coordinates['startingCoordinates']!.dy;
+                              double containerBottomRightX =
+                                  coordinates['endingCoordinates']!.dx;
+                              double containerBottomRightY =
+                                  coordinates['endingCoordinates']!.dy;
+
+                              RenderBox renderBox =
+                                  context.findRenderObject() as RenderBox;
+                              Offset localPosition = renderBox
+                                  .globalToLocal(details.globalPosition);
+
+                              print(coordinates);
+
+                              if (localPosition.dx - 34 >= containerTopLeftX &&
+                                  localPosition.dx + 34 <=
+                                      containerBottomRightX &&
+                                  localPosition.dy - 34 >= containerTopLeftY &&
+                                  localPosition.dy + 34 <=
+                                      containerBottomRightY) {
+                                setState(() {
+                                  print('${localPosition}');
+                                  draw(localPosition);
+                                });
+                              }
                             },
                           ),
                           CustomPaint(
@@ -232,6 +273,25 @@ class _ai_screenState extends State<ai_screen> {
                               color: _drawColor,
                             ),
                           ),
+                          if (_sliderVisible == true)
+                            Positioned(
+                              top: MediaQuery.of(context).size.height * 0.72,
+                              child: Container(
+                                width: MediaQuery.of(context).size.width,
+                                child: Slider(
+                                  value: _sliderValue,
+                                  min: 0.0,
+                                  max: 100.0,
+                                  onChanged: (newValue) {
+                                    setState(() {
+                                      _sliderValue = newValue;
+                                    });
+                                  },
+                                  activeColor: Colors.blueAccent.shade700,
+                                  inactiveColor: Colors.blue.shade100,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -250,40 +310,75 @@ class _ai_screenState extends State<ai_screen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
+                          padding: const EdgeInsets.only(left: 15.0),
                           child: SizedBox(
                             height: 50,
                             width: MediaQuery.of(context).size.width * 0.8,
                             child: TextField(
-                              decoration: InputDecoration(
-                                hintText: "Enter Prompt Here...",
+                              controller: _controller,
+                              decoration: const InputDecoration(
+                                hintText: "Input Prompt...",
                                 border: InputBorder.none,
                               ),
+                              cursorColor: Colors.transparent,
                               onChanged: (text) {
                                 _text = text;
                               },
                             ),
                           ),
                         ),
-                        GestureDetector(
-                            onTap: () {
-                              _save(context);
-                              Future.delayed(Duration(seconds: 3), (){
-                                _uploadImage(context);
-                              });
-
-                            },
-                            child: Container(
-                              height: 50,
-                              width: MediaQuery.of(context).size.width * 0.15,
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
+                        if (_loadingInput == false)
+                          GestureDetector(
+                              onTap: () {
+                                if (_controller.text.isEmpty) {
+                                  showSnackbar(
+                                      context, 'Input prompt empty', 1);
+                                } else if (_points.isEmpty) {
+                                  showSnackbar(
+                                      context, 'No Input Mask generated', 1);
+                                } else {
+                                  setState(() {
+                                    _sliderVisible = false;
+                                    _controller.clear();
+                                    _loadingInput = true;
+                                  });
+                                  _save(context);
+                                  Future.delayed(Duration(seconds: 3), () {
+                                    _uploadImage(context);
+                                  });
+                                }
+                              },
+                              child: Container(
+                                height: 50,
+                                width: MediaQuery.of(context).size.width * 0.15,
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                ),
+                                child: Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                ),
+                              ))
+                        else if (_loadingInput == true)
+                          Container(
+                            height: 50,
+                            width: MediaQuery.of(context).size.width * 0.15,
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                            ),
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                  backgroundColor: Colors.transparent,
+                                ),
                               ),
-                              child: Icon(
-                                Icons.check,
-                                color: Colors.white,
-                              ),
-                            ))
+                            ),
+                          )
                       ],
                     ),
                     Divider(
@@ -294,21 +389,43 @@ class _ai_screenState extends State<ai_screen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         IconButton(
-                          icon: Icon(Icons.draw, color: Colors.black),
-                          onPressed: () {},
+                          icon: Icon(Icons.draw, color: Colors.black54),
+                          onPressed: () {
+                            setState(() {
+                              _sliderVisible = !_sliderVisible;
+                            });
+                          },
                         ),
                         IconButton(
-                          icon: Icon(Icons.undo, color: Colors.black),
-                          onPressed: () {},
+                          icon: Icon(Icons.undo, color: Colors.black54),
+                          onPressed: () {
+                            if (_points.length >= 0) {
+                              setState(() {
+                                int count = 50;
+                                while (_points.isNotEmpty && count > 0) {
+                                  _points.removeLast();
+                                  count--;
+                                }
+                              });
+                            }
+                          },
                         ),
                         IconButton(
-                          icon:
-                              Icon(Icons.download_rounded, color: Colors.black),
-                          onPressed: () {},
+                          icon: Icon(Icons.download_rounded,
+                              color: Colors.black54),
+                          onPressed: () {
+                            _saveImageToGallery(context);
+                          },
                         ),
                         IconButton(
-                          icon: Icon(Icons.collections, color: Colors.black),
-                          onPressed: _openImagePicker,
+                          icon: Icon(Icons.collections, color: Colors.black54),
+                          onPressed: () {
+                            setState(() {
+                              _points.clear();
+                              _controller.clear();
+                            });
+                            _openImagePicker();
+                          },
                         ),
                       ],
                     ),
@@ -318,6 +435,60 @@ class _ai_screenState extends State<ai_screen> {
         ),
       ),
     );
+  }
+
+  void showSnackbar(BuildContext context, String message, int duration) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: duration),
+        action: SnackBarAction(
+          label: 'Close',
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveImageToGallery(BuildContext context) async {
+    if (_pickedImage != null) {
+      try {
+        // Get the directory for temporary files
+        final Directory tempDir = await getTemporaryDirectory();
+
+        // Read the image file as bytes
+        Uint8List bytes = await _pickedImage!.readAsBytes();
+
+        // Write the bytes to a temporary file
+        final File tempFile = File('${tempDir.path}/temp_image.png');
+        await tempFile.writeAsBytes(bytes);
+
+        // Save the image to the gallery
+        final result = await ImageGallerySaver.saveFile(tempFile.path);
+
+        if (result['isSuccess']) {
+          // Image saved successfully
+          print('Image saved to gallery');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Image saved to gallery'),
+              action: SnackBarAction(
+                label: 'Close',
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                },
+              ),
+            ),
+          );
+        } else {
+          print('Failed to save image: ${result['errorMessage']}');
+        }
+      } catch (e) {
+        print('Error saving image to gallery: $e');
+      }
+    }
   }
 
   void _save(BuildContext context) async {
@@ -350,31 +521,43 @@ class _ai_screenState extends State<ai_screen> {
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
       final paint = Paint()
-        ..color = _drawColor
+        ..color = Colors.white
         ..strokeCap = StrokeCap.round
         ..strokeWidth = 70.0;
 
+      final croppedWidth = (containerBottomRightX - containerTopLeftX);
+      final croppedHeight = (containerBottomRightY - containerTopLeftY);
+
       for (int i = 0; i < _points.length - 1; i++) {
         if (_points[i] != null && _points[i + 1] != null) {
-          // Check if the point is within the image bounds
-          if (_isPointWithinBounds(_points[i]!, imgWidth, imgHeight) &&
-              _isPointWithinBounds(_points[i + 1]!, imgWidth, imgHeight)) {
-            canvas.drawLine(_points[i]!, _points[i + 1]!, paint);
+          if ((_points[i].dx >= containerTopLeftX &&
+                  _points[i].dx <= containerBottomRightX &&
+                  _points[i].dy >= containerTopLeftY &&
+                  _points[i].dy <= containerBottomRightY) &&
+              (_points[i + 1].dx >= containerTopLeftX &&
+                  _points[i + 1].dx <= containerBottomRightX &&
+                  _points[i + 1].dy >= containerTopLeftY &&
+                  _points[i + 1].dy <= containerBottomRightY)) {
+            Offset adjustedPoint1 = Offset(_points[i]!.dx - containerTopLeftX,
+                _points[i]!.dy - containerTopLeftY);
+            Offset adjustedPoint2 = Offset(
+                _points[i + 1]!.dx - containerTopLeftX,
+                _points[i + 1]!.dy - containerTopLeftY);
+            canvas.drawLine(adjustedPoint1, adjustedPoint2, paint);
           }
         }
       }
-
       // Convert the image to a PNG byte array
       final picture = recorder.endRecording();
-
-      final img = await picture.toImage(imgWidth.toInt(), imgHeight.toInt());
-
+      final img =
+          await picture.toImage(croppedWidth.toInt(), croppedHeight.toInt());
       final pngBytes = await img.toByteData(format: ui.ImageByteFormat.png);
       final Uint8List pngList = pngBytes!.buffer.asUint8List();
 
       final String filePath = _maskImagePath;
 
       File(filePath).writeAsBytesSync(pngList);
+      print('file paadfdsfa $filePath');
 
       // Clear the drawn points
       setState(() {
