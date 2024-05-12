@@ -10,10 +10,10 @@ class settings_screen extends StatefulWidget {
 class _settings_screen extends State<settings_screen> {
   late TextEditingController _textEditingController;
   late String _url = "";
+  bool _isOk = true;
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     _textEditingController = TextEditingController(text: _url);
   }
@@ -95,38 +95,28 @@ class _settings_screen extends State<settings_screen> {
               ),
               SizedBox(height: 90),
               Divider(color: Colors.black12, height: 1),
-              Padding(
-                padding: const EdgeInsets.only(left: 10, right: 10),
-                child: SizedBox(
-                  height: 50,
-                  width: MediaQuery.of(context).size.width,
-                  child: TextField(controller: _textEditingController,
-                    decoration: InputDecoration(
-                      // hintText: "IP address 1...",
-                      border: InputBorder.none,
-
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.only(left: 15, right: 15),
+                    child: SizedBox(
+                      height: 50,
+                      width: MediaQuery.of(context).size.width * 0.8,
+                      child: TextField(
+                        controller: _textEditingController,
+                        decoration: InputDecoration(
+                          hintText: "Add Server URL",
+                          border: InputBorder.none,
+                        ),
+                        onChanged: (text) {
+                          SharedVariables.setURL(text);
+                        },
+                      ),
                     ),
-                    onChanged: (text) {
-                      SharedVariables.setURL(text);
-                    },
                   ),
-                ),
+                  Icon(Icons.credit_score_sharp, color: Colors.black54)
+                ],
               ),
-              Divider(color: Colors.black12, height: 1),
-              Divider(color: Colors.black12, height: 1),
-              // GestureDetector(
-              //   onTap: () {
-              //     print("save information");
-              //   },
-              //   child: Container(
-              //     height: 50,
-              //     child: Center(
-              //         child: Text(
-              //       "Save information",
-              //     )),
-              //     decoration: BoxDecoration(color: Colors.black12),
-              //   ),
-              // ),
               Divider(color: Colors.black12, height: 1),
             ],
           ),
